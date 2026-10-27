@@ -94,6 +94,16 @@ REGISTRY_URL=https://registry.test
 REGISTRY_AUTH=dXNlcm5hbWU6cGFzc3dvcmQ=
 ```
 
+Alternatively, pass the username and password as plain values. This avoids keeping a base64 copy in sync with the registry's own credentials, for example when both containers read the same Compose variables:
+
+```bash
+REGISTRY_URL=http://registry:5000
+REGISTRY_USERNAME=username
+REGISTRY_PASSWORD=password
+```
+
+Named registries use the same suffix convention (`REGISTRY_USERNAME_PERSONAL`, `REGISTRY_PASSWORD_PERSONAL`). If `REGISTRY_AUTH` is also set, it takes precedence. Malformed credentials (invalid base64, a trailing newline from `echo` without `-n`, surrounding quotes, or a missing `:`) are reported as warnings at startup.
+
 ## User Authentication
 
 **Docker Registry UI** do not have its own user management, but **Docker Registry UI** supports OIDC Authentication , use the `OIDC_*` and `SESSION_SECRET` env. See more in the [.env.example](./.env.example)

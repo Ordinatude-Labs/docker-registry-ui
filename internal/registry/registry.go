@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -198,7 +197,7 @@ func loadDefaultConfig() *Config {
 		return nil
 	}
 	cfg := &Config{Name: "default", URL: url}
-	if auth := parseAuthEnv("REGISTRY_AUTH"); auth != nil {
+	if auth := credentialsFromEnv(cfg.Name, ""); auth != nil {
 		cfg.Username = auth.user
 		cfg.Password = auth.pass
 	}
@@ -230,7 +229,7 @@ func loadNamedConfigs() []Config {
 			Name: strings.ToLower(suffix),
 			URL:  v,
 		}
-		if auth := parseAuthEnv("REGISTRY_AUTH_" + suffix); auth != nil {
+		if auth := credentialsFromEnv(cfg.Name, suffix); auth != nil {
 			cfg.Username = auth.user
 			cfg.Password = auth.pass
 		}
@@ -245,22 +244,18 @@ func loadNamedConfigs() []Config {
 	return configs
 }
 
-type authPair struct{ user, pass string }
-
-func parseAuthEnv(key string) *authPair {
-	encoded := os.Getenv(key)
-	if encoded == "" {
-		return nil
+// credentialsFromEnv resolves credentials for a registry and logs any problems
+// with the configured values, so a misformatted secret surfaces at startup
+// instead of as an unexplained 401 during sync.
+func credentialsFromEnv(registryName, suffix string) *authPair {
+	auth, warnings := resolveCredentials(os.LookupEnv, suffix)
+	for _, w := range warnings {
+		clog.Warn("Registry credentials", "registry", registryName, "problem", w)
 	}
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil
+	if auth == nil {
+		clog.Info("No credentials configured; registry requests will be unauthenticated", "registry", registryName)
 	}
-	parts := strings.SplitN(string(decoded), ":", 2)
-	if len(parts) != 2 {
-		return nil
-	}
-	return &authPair{user: parts[0], pass: parts[1]}
+	return auth
 }
 
 func parseEnvLine(entry string) (key, value string, ok bool) {
